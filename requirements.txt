@@ -1,0 +1,8 @@
+appdirs
+inflect
+mysqlclient
+pandas
+ruamel.yaml
+SQLAlchemy
+sqlalchemy-mixins
+SQLAlchemy-Utils
