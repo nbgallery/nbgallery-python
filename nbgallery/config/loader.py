@@ -1,33 +1,55 @@
 import appdirs
-import configparser
 import os
 from ruamel.yaml import YAML
 
-config_dirs = appdirs.site_config_dir('nbgallery', multipath=True).split(':')
+# Config file order of precedence:
+#  1. Current directory
+#  2. User config directory
+#  3. Site config directories
+config_dirs = [os.getcwd()]
 config_dirs.append(appdirs.user_config_dir('nbgallery'))
-config_dirs.append(os.getcwd())
+config_dirs += appdirs.site_config_dir('nbgallery', multipath=True).split(':')
 
-config = configparser.ConfigParser()
-config.read([os.path.join(p, 'nbgallery.cfg') for p in config_dirs])
-config = config['nbgallery']
-
-rails_config = {}
+# Load the first nbgallery.yml we find
 yaml = YAML(typ='safe')
-if config.get('rails_config'):
-    with open(config['rails_config']) as f:
+config = {}
+for d in config_dirs:
+    config_file = os.path.join(d, 'nbgallery.yml')
+    if os.path.exists(config_file):
+        with open(config_file) as f:
+            config = yaml.load(f)
+        break
+
+# If the config lists a Rails config file, load that too and look for
+# database configuration -- but our file takes precedence.
+if config['nbgallery'].get('rails_config'):
+    with open(config['nbgallery']['rails_config']) as f:
         rails_config = yaml.load(f)
+    rails_mysql_config = rails_config.get('mysql', {})
+    rails_directory_config = rails_config.get('directories', {})
 
-rails_mysql_config = rails_config.get('mysql', {})
-rails_directory_config = rails_config.get('directories', {})
+    for s in ['username', 'password', 'host', 'port', 'database']:
+        setting = 'mysql_' + s
+        if not config['nbgallery'].get(setting):
+            config['nbgallery'][setting] = rails_mysql_config.get(s)
 
-mysql_username = config['mysql_username'] or rails_mysql_config.get('username')
-mysql_password = config['mysql_password'] or rails_mysql_config.get('password')
-mysql_host = config['mysql_host'] or rails_mysql_config.get('host') or '127.0.0.1'
-mysql_port = config['mysql_port'] or rails_mysql_config.get('port') or '3306'
-mysql_database = config['mysql_database'] or rails_mysql_config.get('database')
-notebook_cache_dir = config['notebook_cache_dir'] or rails_directory_config.get('cache')
+    if not config['nbgallery'].get('notebook_cache_dir'):
+        config['nbgallery']['notebook_cache_dir'] = rails_directory_config.get('cache') 
+
+# Set mysql server defaults
+if not config['nbgallery']['mysql_host']:
+    config['nbgallery']['mysql_host'] = '127.0.0.1'
+if not config['nbgallery']['mysql_port']:
+    config['nbgallery']['mysql_port'] = '3306'
+
+mysql_username = config['nbgallery']['mysql_username']
+mysql_password = config['nbgallery']['mysql_password']
+mysql_host = config['nbgallery']['mysql_host']
+mysql_port = config['nbgallery']['mysql_port']
+mysql_database = config['nbgallery']['mysql_database']
+notebook_cache_dir = config['nbgallery']['notebook_cache_dir']
 
 mysql_url = 'mysql+mysqldb://' + mysql_username
 if mysql_password:
     mysql_url += ':' + mysql_password
-mysql_url += '@' + mysql_host + ':' + mysql_port + '/' + mysql_database
+mysql_url += '@' + mysql_host + ':' + str(mysql_port) + '/' + mysql_database

@@ -1,6 +1,6 @@
 # nbgallery-python
 
-* Experimental work in progress - API subject to change! *
+**Experimental work in progress - API subject to change!**
 
 Python interface to a local nbgallery database
 
@@ -11,19 +11,16 @@ Python interface to a local nbgallery database
 
 ## Configuration
 
-Create `nbgallery.cfg` in the current directory or `~/.config/nbgallery/`.  You can specify the nbgallery rails config file (e.g. `settings.local.yml`) to load settings from there instead.
+Create `nbgallery.yml` in the current directory or `~/.config/nbgallery/`.  You can specify the nbgallery rails config file (e.g. `settings.local.yml`) to load database settings from there if not specified in `nbgallery.yml`.
 
 ```
-[nbgallery]
-
-rails_config =
-
-mysql_username =
-mysql_password = 
-mysql_host =
-mysql_port =
-mysql_database =
-
-notebook_cache_dir =
+nbgallery:
+  rails_config:
+  mysql_username:
+  mysql_password:
+  mysql_host:
+  mysql_port:
+  mysql_database:
+  notebook_cache_dir:
 ```
 
