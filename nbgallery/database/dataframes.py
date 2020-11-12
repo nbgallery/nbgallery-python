@@ -2,6 +2,8 @@
 Commonly used nbgallery datasets as pandas dataframes.
 """
 
+import datetime
+
 import pandas as pd
 import sqlalchemy as sa
 
@@ -15,6 +17,47 @@ import nbgallery.database.orm as orm
 
 # For debugging, you can print() the select object right before the read_sql()
 # call to see the SQL text.
+
+def add_date_filters(select, column, min_date=None, max_date=None, days_ago=None):
+    """
+    Add date filters for click queries.  Specify min_date and/or max_date, or
+    specify days_ago to determine min_date based on the current date.  The
+    column parameter should be an SQLAlchemy column object; for example
+    table.c.created_at.
+    """
+    if days_ago:
+        min_date = datetime.datetime.today().date() - datetime.timedelta(days=days_ago)
+        max_date = None
+    if min_date:
+        select = select.where(column >= min_date)
+    if max_date:
+        select = select.where(column <= max_date)
+    return select
+
+def isiterable(obj):
+    """
+    Return whether an object is iterable
+    """
+    # see https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable
+    try:
+        iter(obj)
+        return True
+    except:
+        return False
+
+def add_id_filter(select, column, ids):
+    """
+    Add a filter to a query for one or more ids.  If ids is a single value,
+    an == clause will be added; if ids is iterable, an IN clause will be
+    added. The column parameter should be an SQLAlchemy column object; for
+    example table.c.notebook_id.
+    """
+    if ids is None:
+        return select
+    elif isiterable(ids):
+        return select.where(column.in_(ids))
+    else:
+        return select.where(column == ids)
 
 def notebooks():
     """
@@ -86,30 +129,26 @@ def click_default_actions():
         'created notebook',
         'edited notebook',
         'viewed notebook',
+        'downloaded notebook',
         'ran notebook',
         'executed notebook'
     ]
 
-def add_click_filters(select, min_date=None, max_date=None, user_id=None, notebook_id=None, actions=None):
+def add_click_filters(select, min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None, actions=None):
     """
     Add SQL filters for click queries
     """
     t = orm.Click.__table__
-    if min_date:
-        select = select.where(t.c.created_at >= min_date)
-    if max_date:
-        select = select.where(t.c.created_at <= max_date)
-    if user_id:
-        select = select.where(t.c.user_id == user_id)
-    if notebook_id:
-        select = select.where(t.c.notebook_id == notebook_id)
+    select = add_date_filters(select, t.c.created_at, min_date=min_date, max_date=max_date, days_ago=days_ago)
+    select = add_id_filter(select, t.c.user_id, user_id)
+    select = add_id_filter(select, t.c.notebook_id, notebook_id)
     if actions:
         select = select.where(t.c.action.in_(actions))
     else:
         select = select.where(t.c.action.in_(click_default_actions()))
     return select
 
-def clicks(min_date=None, max_date=None, user_id=None, notebook_id=None, actions=None):
+def clicks(min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None, actions=None):
     """
     Dataframe with one row per click (user-notebook interaction).  Warning:
     could be large!
@@ -121,10 +160,10 @@ def clicks(min_date=None, max_date=None, user_id=None, notebook_id=None, actions
         t.c.action,
         t.c.created_at.label('timestamp')
     ])
-    s = add_click_filters(s, min_date=min_date, max_date=max_date, user_id=user_id, notebook_id=notebook_id, actions=actions)
+    s = add_click_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id, notebook_id=notebook_id, actions=actions)
     return pd.read_sql(s, db.engine)
 
-def clicks_rollup(min_date=None, max_date=None, user_id=None, notebook_id=None, actions=None):
+def clicks_rollup(min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None, actions=None):
     """
     Dataframe with one row per (user, notebook, action) tuple, with count and
     first/last timestamp
@@ -138,10 +177,10 @@ def clicks_rollup(min_date=None, max_date=None, user_id=None, notebook_id=None, 
         sa.func.min(t.c.created_at).label('first'),
         sa.func.max(t.c.created_at).label('last')
     ]).group_by(t.c.user_id, t.c.notebook_id, t.c.action)
-    s = add_click_filters(s, min_date=min_date, max_date=max_date, user_id=user_id, notebook_id=notebook_id, actions=actions)
+    s = add_click_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id, notebook_id=notebook_id, actions=actions)
     return pd.read_sql(s, db.engine)
 
-def clicks_rollup_pivot(min_date=None, max_date=None, user_id=None, notebook_id=None):
+def clicks_rollup_pivot(min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None):
     """
     Dataframe with one row per (user, notebook) tuple, with action counts and
     first/last timestamp
@@ -157,5 +196,5 @@ def clicks_rollup_pivot(min_date=None, max_date=None, user_id=None, notebook_id=
         sa.func.max(t.c.created_at).label('last')
     ]
     s = sa.select(columns).group_by(t.c.user_id, t.c.notebook_id)
-    s = add_click_filters(s, min_date=min_date, max_date=max_date, user_id=user_id, notebook_id=notebook_id)
+    s = add_click_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id, notebook_id=notebook_id)
     return pd.read_sql(s, db.engine)
