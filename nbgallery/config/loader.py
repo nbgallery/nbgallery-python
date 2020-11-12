@@ -20,6 +20,9 @@ for d in config_dirs:
             config = yaml.load(f)
         break
 
+if not config:
+    raise ImportError(f"No nbgallery.yml config file found in the search path: {str(config_dirs)}")
+
 # If the config lists a Rails config file, load that too and look for
 # database configuration -- but our file takes precedence.
 if config['nbgallery'].get('rails_config'):

@@ -1,9 +1,19 @@
+"""
+Object-relational mapping for nbgallery database.
+
+Use this module to access the database with Python objects that map to rows in
+the database. The naming convention is similar to Rails ActiveRecord where
+possible.  For example, the Notebook object maps to an entry in the 'notebooks'
+database table.
+"""
+
 import sqlalchemy as sa
+import sqlalchemy.orm
 import sqlalchemy.ext.automap
 import sqlalchemy_utils as sa_utils
 import sqlalchemy_mixins as sa_mixins
 
-import nbgallery.database as db
+import nbgallery.database as nbgdb
 
 #
 # Automap
@@ -40,6 +50,9 @@ import nbgallery.database as db
 # Just for completeness, Django calls them generic relations:
 # https://docs.djangoproject.com/en/3.1/ref/contrib/contenttypes/#generic-relations
 #
+
+# Session class for ORM usage
+Session = sa.orm.sessionmaker(bind=nbgdb.engine)
 
 # The Automap base class
 Base = sa.ext.automap.automap_base()
@@ -78,10 +91,10 @@ class Click(BaseModel):
     __repr_attrs__ = ['notebook_id', 'user_id', 'action']
 
 Base.prepare(
-    db.engine,
+    nbgdb.engine,
     reflect=True,
-    classname_for_table=db.rails_classname_for_table,
-    name_for_collection_relationship=db.rails_collection_name
+    classname_for_table=nbgdb.rails_classname_for_table,
+    name_for_collection_relationship=nbgdb.rails_collection_name
 )
 
 # Pull the rest of the reflected classes up into this namespace

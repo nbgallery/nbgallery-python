@@ -1,26 +1,37 @@
+"""
+Interface to a local nbgallery database.
+
+The nbgallery.database module contains the engine for mysql connections and
+various utility functions.
+
+For higher-level database access, see the submodules:
+ * nbgallery.database.orm: object-relational mapping
+ * nbgallery.database.dataframes: commonly used datasets as pandas dataframes
+"""
+
 import re
 
 import inflect
 import sqlalchemy as sa
-import sqlalchemy.orm
 
 from nbgallery.config import mysql_url
 
 # Database connection
 engine = sa.create_engine(mysql_url)
 
-# Session class for ORM usage
-Session = sqlalchemy.orm.sessionmaker(bind=engine)
-
 # For singular/plural conversions, etc.
 inflector = inflect.engine()
 
 def camelize(s):
-    """ Convert underscores to camelcase; e.g. foo_bar => FooBar """
+    """
+    Convert underscores to camelcase; e.g. foo_bar => FooBar
+    """
     return s[0].upper() + re.sub(r'_([a-z])', lambda m: m.group(1).upper(), s[1:])
     
 def uncamelize(s):
-    """ Convert camelcase to underscores; e.g. FooBar => foo_bar """
+    """
+    Convert camelcase to underscores; e.g. FooBar => foo_bar
+    """
     return s[0].lower() + re.sub(r'[A-Z]', lambda m: "_%s" % m.group(0).lower(), s[1:])
 
 def rails_classname_for_table(base, tablename, table):

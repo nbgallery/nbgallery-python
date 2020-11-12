@@ -1,3 +1,7 @@
+"""
+Commonly used nbgallery datasets as pandas dataframes.
+"""
+
 import pandas as pd
 import sqlalchemy as sa
 
@@ -13,11 +17,15 @@ import nbgallery.database.orm as orm
 # call to see the SQL text.
 
 def notebooks():
-    """ Dataframe of metadata for all notebooks """
+    """
+    Dataframe of metadata for all notebooks
+    """
     return pd.read_sql_table(orm.Notebook.__tablename__, db.engine)
 
 def notebooks_with_summaries():
-    """ Notebook metadata joined with summary stats """
+    """
+    Dataframe of notebook metadata joined with summary stats
+    """
     nb = orm.Notebook.__table__
     nbs = orm.NotebookSummary.__table__
     nbs_columns = list(nbs.columns)
@@ -29,8 +37,10 @@ def notebooks_with_summaries():
     return pd.read_sql(s, db.engine)
 
 def user_select_columns():
-    """ Useful columns from the users table """
-    # Exclude some of the auth-related things, like password
+    """
+    Useful columns from the users table, omitting authentication-related
+    columns like password.
+    """
     u = orm.User.__table__
     return [
         u.c.id,
@@ -46,12 +56,16 @@ def user_select_columns():
     ]
 
 def users():
-    """ Dataframe of metadata for all users """
+    """
+    Dataframe of metadata for all users
+    """
     s = sa.select(user_select_columns())
     return pd.read_sql(s, db.engine)
 
 def users_with_summaries():
-    """ User metadata joined with summary stats """
+    """
+    Dataframe of user metadata joined with summary stats
+    """
     u = orm.User.__table__
     us = orm.UserSummary.__table__
     us_columns = list(us.columns)
@@ -64,7 +78,10 @@ def users_with_summaries():
     return pd.read_sql(s, db.engine)
 
 def click_default_actions():
-    """ The click actions we're usually most interested in """
+    """
+    The click actions we're usually most interested in -- direct actions by a
+    user on a notebook like view, execute, etc.
+    """
     return [
         'created notebook',
         'edited notebook',
@@ -74,7 +91,9 @@ def click_default_actions():
     ]
 
 def add_click_filters(select, min_date=None, max_date=None, user_id=None, notebook_id=None, actions=None):
-    """ Add SQL filters for click queries """
+    """
+    Add SQL filters for click queries
+    """
     t = orm.Click.__table__
     if min_date:
         select = select.where(t.c.created_at >= min_date)
@@ -91,7 +110,10 @@ def add_click_filters(select, min_date=None, max_date=None, user_id=None, notebo
     return select
 
 def clicks(min_date=None, max_date=None, user_id=None, notebook_id=None, actions=None):
-    """ One row per click """
+    """
+    Dataframe with one row per click (user-notebook interaction).  Warning:
+    could be large!
+    """
     t = orm.Click.__table__
     s = sa.select([
         t.c.user_id,
@@ -103,7 +125,10 @@ def clicks(min_date=None, max_date=None, user_id=None, notebook_id=None, actions
     return pd.read_sql(s, db.engine)
 
 def clicks_rollup(min_date=None, max_date=None, user_id=None, notebook_id=None, actions=None):
-    """ One row per (user, notebook, action) with count and first/last timestamp """
+    """
+    Dataframe with one row per (user, notebook, action) tuple, with count and
+    first/last timestamp
+    """
     t = orm.Click.__table__
     s = sa.select([
         t.c.user_id,
@@ -117,7 +142,10 @@ def clicks_rollup(min_date=None, max_date=None, user_id=None, notebook_id=None, 
     return pd.read_sql(s, db.engine)
 
 def clicks_rollup_pivot(min_date=None, max_date=None, user_id=None, notebook_id=None):
-    """ One row per (user, notebook) with action counts and first/last timestamp """
+    """
+    Dataframe with one row per (user, notebook) tuple, with action counts and
+    first/last timestamp
+    """
     t = orm.Click.__table__
     columns = [t.c.user_id, t.c.notebook_id, sa.func.count(t.c.id).label('count')]
     columns += [
