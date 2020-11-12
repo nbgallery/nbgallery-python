@@ -2,11 +2,15 @@ import re
 
 import inflect
 import sqlalchemy as sa
+import sqlalchemy.orm
 
 from nbgallery.config import mysql_url
 
 # Database connection
 engine = sa.create_engine(mysql_url)
+
+# Session class for ORM usage
+Session = sqlalchemy.orm.sessionmaker(bind=engine)
 
 # For singular/plural conversions, etc.
 inflector = inflect.engine()

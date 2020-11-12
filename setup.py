@@ -19,6 +19,8 @@ setup(
         'appdirs',
         'inflect',
         'mysqlclient',
+        'nbformat',
+        'nbstripout',
         'pandas',
         'ruamel.yaml',
         'SQLAlchemy',
