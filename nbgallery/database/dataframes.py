@@ -236,3 +236,97 @@ def user_clicks_rollup(min_date=None, max_date=None, days_ago=None, user_id=None
     s = sa.select(columns).group_by(t.c.user_id)
     s = add_click_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id)
     return pd.read_sql(s, db.engine)
+
+def add_execution_filters(select, min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None):
+    """
+    Add SQL filters for execution queries
+    """
+    executions = orm.Execution.__table__
+    code_cells = orm.CodeCell.__table__
+    select = add_date_filters(select, executions.c.created_at, min_date=min_date, max_date=max_date, days_ago=days_ago)
+    select = add_id_filter(select, executions.c.user_id, user_id)
+    select = add_id_filter(select, code_cells.c.notebook_id, notebook_id)
+    return select
+
+def executions(min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None):
+    """
+    Dataframe with one row per execution (user-cell execution).  Warning:
+    could be large!
+    """
+    executions = orm.Execution.__table__
+    code_cells = orm.CodeCell.__table__
+    columns = [
+        executions.c.id,
+        executions.c.user_id,
+        executions.c.code_cell_id,
+        code_cells.c.notebook_id,
+        code_cells.c.cell_number,
+        executions.c.success,
+        executions.c.runtime,
+        executions.c.created_at.label('timestamp')
+    ]
+    s = sa.select(columns).select_from(executions.join(code_cells))
+    s = add_execution_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id, notebook_id=notebook_id)
+    return pd.read_sql(s, db.engine)
+
+def cell_execution_rollup(min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None):
+    """
+    Dataframe containing one row per code cell with execution summary data.
+    """
+    executions = orm.Execution.__table__
+    code_cells = orm.CodeCell.__table__
+    columns = [
+        executions.c.code_cell_id,
+        code_cells.c.notebook_id,
+        code_cells.c.cell_number,
+        sa.func.count(executions.c.user_id.distinct()).label('users'),
+        success := sa.cast(sa.func.sum(executions.c.success), sa.Integer).label('success'),
+        count := sa.func.count(1).label('count'),
+        (success / count).label('pass_rate'),
+        sa.func.min(executions.c.created_at).label('first'),
+        sa.func.max(executions.c.created_at).label('last')
+    ]
+    s = sa.select(columns).select_from(executions.join(code_cells)).group_by(executions.c.code_cell_id)
+    s = add_execution_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id, notebook_id=notebook_id)
+    return pd.read_sql(s, db.engine)
+
+def notebook_cell_count(label='cell_count'):
+    """
+    Dataframe with notebook_id and number of code cells per notebook.
+    """
+    code_cells = orm.CodeCell.__table__
+    columns = [
+        code_cells.c.notebook_id,
+        sa.func.count(code_cells.c.cell_number.distinct()).label(label)
+    ]
+    s = sa.select(columns).group_by(code_cells.c.notebook_id)
+    return pd.read_sql(s, db.engine)
+
+def notebook_execution_rollup(min_date=None, max_date=None, days_ago=None, user_id=None, notebook_id=None):
+    """
+    Dataframe containing one row per notebook with execution summary data.
+    """
+    executions = orm.Execution.__table__
+    code_cells = orm.CodeCell.__table__
+    columns = [
+        code_cells.c.notebook_id,
+        sa.func.count(executions.c.user_id.distinct()).label('users'),
+        sa.func.count(code_cells.c.cell_number.distinct()).label('cells_executed'),
+        success := sa.cast(sa.func.sum(executions.c.success), sa.Integer).label('cell_exec_success'),
+        total := sa.func.count(1).label('cell_exec_count'),
+        (success / total).label('cell_pass_rate'),
+        sa.func.min(executions.c.created_at).label('first'),
+        sa.func.max(executions.c.created_at).label('last')
+    ]
+    s = sa.select(columns).select_from(executions.join(code_cells)).group_by(code_cells.c.notebook_id)
+    s = add_execution_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id, notebook_id=notebook_id)
+    df = pd.read_sql(s, db.engine)
+
+    # Add in total cells per notebook so you can see if some weren't executed
+    ncc = notebook_cell_count(label='cells_total')
+    df = df.merge(ncc, how='inner', on='notebook_id')
+    # Reorder columns
+    columns = df.columns.to_list()
+    columns.remove('cells_total')
+    columns.insert(columns.index('cells_executed') + 1, 'cells_total')
+    return df[columns]
