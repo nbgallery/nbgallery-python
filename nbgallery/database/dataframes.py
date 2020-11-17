@@ -198,3 +198,41 @@ def clicks_rollup_pivot(min_date=None, max_date=None, days_ago=None, user_id=Non
     s = sa.select(columns).group_by(t.c.user_id, t.c.notebook_id)
     s = add_click_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id, notebook_id=notebook_id)
     return pd.read_sql(s, db.engine)
+
+def notebook_clicks_rollup(min_date=None, max_date=None, days_ago=None, notebook_id=None):
+    """
+    Dataframe with one row per notebook, with action/user counts and first/last
+    timestamp.  This contains some of the basic counts currently in the
+    notebook_summaries table.
+    """
+    t = orm.Click.__table__
+    columns = [t.c.notebook_id, sa.func.count(t.c.id).label('count')]
+    for action in click_default_actions():
+        columns.append(sa.text(f"COUNT(CASE WHEN action='{action}' THEN 1 END) AS {action.split()[0]}"))
+        columns.append(sa.text(f"COUNT(DISTINCT(CASE WHEN action='{action}' THEN user_id END)) AS users_{action.split()[0]}"))
+    columns += [
+        sa.func.min(t.c.created_at).label('first'),
+        sa.func.max(t.c.created_at).label('last')
+    ]
+    s = sa.select(columns).group_by(t.c.notebook_id)
+    s = add_click_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, notebook_id=notebook_id)
+    return pd.read_sql(s, db.engine)
+
+def user_clicks_rollup(min_date=None, max_date=None, days_ago=None, user_id=None):
+    """
+    Dataframe with one row per user, with action/notebook counts and first/last
+    timestamp.  This contains some of the counts that currently feed into the
+    user contribution scores in the user_summaries table.
+    """
+    t = orm.Click.__table__
+    columns = [t.c.user_id, sa.func.count(t.c.id).label('count')]
+    for action in click_default_actions():
+        columns.append(sa.text(f"COUNT(CASE WHEN action='{action}' THEN 1 END) AS {action.split()[0]}"))
+        columns.append(sa.text(f"COUNT(DISTINCT(CASE WHEN action='{action}' THEN notebook_id END)) AS notebooks_{action.split()[0]}"))
+    columns += [
+        sa.func.min(t.c.created_at).label('first'),
+        sa.func.max(t.c.created_at).label('last')
+    ]
+    s = sa.select(columns).group_by(t.c.user_id)
+    s = add_click_filters(s, min_date=min_date, max_date=max_date, days_ago=days_ago, user_id=user_id)
+    return pd.read_sql(s, db.engine)
