@@ -14,6 +14,15 @@ class NotebookDocument(ABC):
         """
         self.notebook_type = notebook_type
 
+    def __str__(self):
+       try:
+           snippet = next(self.sources())
+       except:
+           snippet = ''
+       if len(snippet) > 40:
+           snippet = snippet[:40] + '...'
+       return f"<{self.__class__.__name__} [{self.language()}] '{snippet}'>"
+
     @abstractmethod
     def content(self):
         """
