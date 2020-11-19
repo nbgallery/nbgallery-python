@@ -56,6 +56,20 @@ class NotebookDocument(ABC):
         return []
 
     @abstractmethod
+    def code_sources(self):
+        """
+        Return the source from code cells only, as an iterable of strings.
+        """
+        return []
+
+    @abstractmethod
+    def doc_sources(self):
+        """
+        Return the source from documentation cells only, as an iterable of strings.
+        """
+        return []
+
+    @abstractmethod
     def metadata(self):
         """
         Return metadata about the notebook.  Structure may depend on the type

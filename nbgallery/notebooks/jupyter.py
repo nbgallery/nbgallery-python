@@ -29,6 +29,16 @@ class JupyterNotebook(NotebookDocument):
         for cell in self.cells(**kwargs):
             yield cell.source
 
+    def code_sources(self):
+        for cell in self.cells():
+            if cell.cell_type == 'code':
+                yield cell.source
+
+    def doc_sources(self):
+        for cell in self.cells():
+            if cell.cell_type == 'markdown':
+                yield cell.source
+
     def metadata(self):
         return self.notebook.metadata
 
